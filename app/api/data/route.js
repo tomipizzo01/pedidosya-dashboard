@@ -200,11 +200,11 @@ export async function GET() {
 
   try {
     const [rdRows, tRows, rkRows, mtRows, mwRows] = await Promise.all([
-      trySheetNames(['Registro Diario', '📝 Registro Diario']),
-      trySheetNames(['Turnos', 'Registro de Turnos', '🗓️ Turnos', '📋 Turnos']),
-      trySheetNames(['Ranking Semanal', '🏆 Ranking Semanal', 'Ranking']),
-      trySheetNames(['Mantenimiento', '🏍️ Mantenimiento', '🔧 Mantenimiento']),
-      trySheetNames(['Mundial 2026', '⚽ Mundial 2026', 'Mundial']),
+      trySheetNames(['📅 Registro Diario', 'Registro Diario', '📝 Registro Diario']),
+      trySheetNames(['📅 Turnos', 'Turnos', 'Registro de Turnos', '🗓️ Turnos']),
+      trySheetNames(['🏆 Ranking Semanal', 'Ranking Semanal', 'Ranking']),
+      trySheetNames(['🏍️ Mantenimiento', 'Mantenimiento', '🔧 Mantenimiento']),
+      trySheetNames(['🏆 Mundial 2026', 'Mundial 2026', '⚽ Mundial 2026']),
     ]);
 
     const registroDiario = parseRegistroDiario(rdRows);
