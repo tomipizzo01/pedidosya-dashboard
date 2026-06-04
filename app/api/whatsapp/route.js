@@ -9,9 +9,28 @@ const DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábad
 // ── Google Sheets auth (Service Account) ──────────────────────────────────
 
 async function getSheetsClient() {
-  const key = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+
+  // Vercel almacena el env var con saltos de línea reales (mostró WARNING al guardarlo).
+  // Eso rompe JSON.parse en el campo private_key. Lo corregimos:
+  let credentials;
+  try {
+    credentials = JSON.parse(raw);
+  } catch {
+    const fixed = raw.replace(
+      /"private_key"\s*:\s*"([\s\S]*?)"\s*,/,
+      (match, pk) => match.replace(pk, pk.replace(/\n/g, '\\n'))
+    );
+    credentials = JSON.parse(fixed);
+  }
+
+  // Asegurar que la clave privada tenga saltos de línea reales para el módulo crypto
+  if (credentials.private_key) {
+    credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+  }
+
   const auth = new google.auth.GoogleAuth({
-    credentials: key,
+    credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
   return google.sheets({ version: 'v4', auth });
