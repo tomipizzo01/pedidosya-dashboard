@@ -144,13 +144,16 @@ const MSG_FINANZAS = `💰 *Sección 1 — Finanzas del día*
 
 Mandame los datos de tu jornada en lenguaje natural. Ejemplo:
 
-_"Generé 85000, efectivo 40000, nafta 3000, comida 1500, 7 horas, 30 pedidos, 90km, soleado, energía 4"_
+_"Saldo 40000, generé 85000, efectivo 40000, nafta 3000, comida 1500, 7 horas, 30 pedidos, 90km, soleado, energía 4"_
 
 📌 Podés incluir:
+• *Saldo inicial* — lo que te dio Emi al salir (ej: "saldo 40000", "sin saldo", "saldo 0")
 • Generado · Efectivo · Nafta · Comida · Otros
 • Horas · Pedidos · KM
 • Clima: soleado/nublado/lluvia/tormenta/calor
 • Energía: del 1 al 5
+
+💡 Si no indicás el saldo, se usa $50.000 por defecto.
 
 _Escribí *menu* para volver al inicio._`;
 
@@ -202,7 +205,28 @@ _Escribí *menu* para volver al inicio._`;
 // ─────────────────────────────────────────────
 function parseFinanzas(body) {
   const t = norm(body);
+
+  // Saldo inicial — detecta frases como:
+  // "saldo 40000", "saldo inicial 40000", "emi me dio 50000",
+  // "sali con 30000", "sin saldo", "saldo 0"
+  let saldoInicial = null;
+  if (t.includes('sin saldo') || t.match(/saldo\s*(inicial\s*)?0\b/)) {
+    saldoInicial = 0;
+  } else {
+    const rawSaldo = exNum(t, [
+      /saldo\s*(?:inicial\s*)?([0-9.,]+)/,
+      /emi\s*(?:me\s*(?:dio|mando|paso)\s*)([0-9.,]+)/,
+      /sali\s*(?:con\s*)([0-9.,]+)/,
+      /sal[i]\s*(?:de\s*casa\s*)?(?:con\s*)([0-9.,]+)/,
+    ]);
+    if (rawSaldo != null) {
+      // Validar umbral: mínimo $0, máximo $100.000
+      saldoInicial = Math.min(Math.max(Math.round(rawSaldo), 0), 100000);
+    }
+  }
+
   return {
+    saldoInicial,
     totalGenerado: exNum(t,[
       /(?:genere?|gane?|total(?:\s*gen(?:erado)?)?|facture?)\s*([0-9.,]+)/,
       /([0-9.,]+)\s*(?:generado|de total|en total)/,
@@ -248,11 +272,13 @@ async function findOrCreateFinanzasRow(sheets, fecha) {
 async function saveFinanzas(sheets, data) {
   const { fecha, dia } = nowAR();
   const rowNum = await findOrCreateFinanzasRow(sheets, fecha);
-  const { totalGenerado, efectivo, nafta, comida, otros, horas, pedidos, km, clima, energia } = data;
+  const { saldoInicial: saldoMsg, totalGenerado, efectivo, nafta, comida, otros, horas, pedidos, km, clima, energia } = data;
 
+  // Usar el saldo que mandó Nico; si no mandó ninguno, usar el valor fijo de $50.000
+  const saldoUsado  = saldoMsg != null ? saldoMsg : SALDO_FIJO;
   const porApp      = totalGenerado != null && efectivo != null ? totalGenerado - efectivo : null;
   const totalGastos = (nafta||0) + (comida||0) + (otros||0);
-  const ganReal     = totalGenerado != null ? SALDO_FIJO + totalGenerado - totalGastos : null;
+  const ganReal     = totalGenerado != null ? saldoUsado + totalGenerado - totalGastos : null;
   const xHora       = ganReal != null && horas   ? ganReal / horas   : null;
   const xPedido     = ganReal != null && pedidos ? ganReal / pedidos : null;
 
@@ -264,7 +290,7 @@ async function saveFinanzas(sheets, data) {
       data: [
         { range: `'${SH_FINANZAS}'!A${rowNum}`, values: [[fecha]] },
         { range: `'${SH_FINANZAS}'!B${rowNum}`, values: [[dia]] },
-        { range: `'${SH_FINANZAS}'!C${rowNum}`, values: [[SALDO_FIJO]] },
+        { range: `'${SH_FINANZAS}'!C${rowNum}`, values: [[saldoUsado]] },
         { range: `'${SH_FINANZAS}'!D${rowNum}`, values: [[v(totalGenerado)]] },
         { range: `'${SH_FINANZAS}'!E${rowNum}`, values: [[v(efectivo)]] },
         { range: `'${SH_FINANZAS}'!H${rowNum}`, values: [[v(nafta)]] },
@@ -278,14 +304,21 @@ async function saveFinanzas(sheets, data) {
       ],
     },
   });
-  return { ganReal, totalGastos, porApp, xHora, xPedido };
+  return { ganReal, totalGastos, porApp, xHora, xPedido, saldoUsado };
 }
 
 function buildFinanzasReply(data, result, fecha) {
-  const { totalGenerado, efectivo, nafta, comida, otros, horas, pedidos, km, clima, energia } = data;
-  const { ganReal, totalGastos, porApp, xHora, xPedido } = result;
+  const { totalGenerado, efectivo, nafta, comida, otros, horas, pedidos, km, clima, energia, saldoInicial } = data;
+  const { ganReal, totalGastos, porApp, xHora, xPedido, saldoUsado } = result;
+
+  // Aviso si se usó el saldo por defecto porque Nico no lo incluyó
+  const saldoAviso = saldoInicial == null
+    ? `\n⚠️ _No indicaste saldo inicial — se usó el valor por defecto de ${$ar(SALDO_FIJO)}._\n_Si fue distinto, incluilo la próxima vez: "saldo 40000, generé..."_`
+    : null;
+
   return [
     `✅ *Guardado — ${fecha}*`, '',
+    `💵 Saldo inicial (Emi): *${$ar(saldoUsado)}*`,
     totalGenerado != null ? `💰 Total generado: *${$ar(totalGenerado)}*` : null,
     efectivo  != null     ? `💵 Efectivo: ${$ar(efectivo)}`              : null,
     porApp    != null     ? `📱 Por app: ${$ar(porApp)}`                 : null,
@@ -301,6 +334,7 @@ function buildFinanzasReply(data, result, fecha) {
     [xHora ? `${$ar(xHora)}/hora` : null, xPedido ? `${$ar(xPedido)}/pedido` : null].filter(Boolean).join(' · ') || null,
     clima   ? `🌤️ ${clima}`       : null,
     energia ? `⚡ Energía: ${energia}/5` : null,
+    saldoAviso,
     '',
     '_Escribí *menu* para volver al inicio o mandá más datos._',
   ].filter(x => x !== null).join('\n');
