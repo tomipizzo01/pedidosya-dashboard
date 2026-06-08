@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 const INFO = {
   nombre: "Nicolas Acosta",
@@ -49,7 +50,7 @@ function Card({ label, value, sub, color }) {
   return (
     <div className="bg-[#1a1f2e] rounded-2xl p-5 border border-[#2a3045] flex flex-col gap-1">
       <span className="text-xs text-slate-400 uppercase tracking-wider">{label}</span>
-      <span className={`text-2xl font-bold ${color || "text-brand"}`}>{value}</span>
+      <span className={`text-2xl font-bold tabular-nums ${color || "text-brand"}`}>{value}</span>
       {sub && <span className="text-xs text-slate-500 mt-1">{sub}</span>}
     </div>
   );
@@ -68,8 +69,8 @@ const Th = ({ children, className = "" }) => (
     {children}
   </th>
 );
-const Td = ({ children, className = "" }) => (
-  <td className={`px-4 py-3 text-sm text-slate-200 whitespace-nowrap ${className}`}>{children}</td>
+const Td = ({ children, className = "", title }) => (
+  <td className={`px-4 py-3 text-sm text-slate-200 whitespace-nowrap tabular-nums ${className}`} title={title}>{children}</td>
 );
 const Tr = ({ children }) => (
   <tr className="border-t border-[#2a3045] hover:bg-[#1e2540] transition-colors">{children}</tr>
@@ -82,7 +83,7 @@ const EmptyRow = ({ cols, msg = "Sin datos registrados aún" }) => (
 
 function Skeleton() {
   return (
-    <div className="animate-pulse space-y-4">
+    <div className="animate-pulse motion-reduce:animate-none space-y-4" aria-hidden="true">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[...Array(8)].map((_, i) => (
           <div key={i} className="bg-[#1a1f2e] rounded-2xl h-24 border border-[#2a3045]" />
@@ -101,7 +102,7 @@ function Header({ lastUpdated, refreshing, onRefresh }) {
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">🛵</div>
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl" aria-hidden="true">🛵</div>
             <span className="text-white/80 text-sm font-medium tracking-widest uppercase">PedidosYa · Tucumán</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-white leading-tight">Gestor de Finanzas</h1>
@@ -122,13 +123,13 @@ function Header({ lastUpdated, refreshing, onRefresh }) {
             <button
               onClick={onRefresh}
               disabled={refreshing}
-              className="bg-white/20 hover:bg-white/30 text-white text-xs px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+              className="bg-white/20 hover:bg-white/30 text-white text-xs px-3 py-1.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#8B0000] disabled:opacity-50"
             >
-              {refreshing ? "⏳ Actualizando..." : "🔄 Actualizar"}
+              {refreshing ? "⏳ Actualizando…" : "🔄 Actualizar"}
             </button>
-            {lastUpdated && (
-              <span className="text-white/50 text-xs">Actualizado: {fmt(lastUpdated)}</span>
-            )}
+            <span className="text-white/50 text-xs tabular-nums" aria-live="polite">
+              {lastUpdated ? `Actualizado: ${fmt(lastUpdated)}` : ""}
+            </span>
           </div>
         </div>
       </div>
@@ -149,14 +150,15 @@ function NavTabs({ active, setActive }) {
     { id: "mundial", label: "⚽ Mundial" },
   ];
   return (
-    <nav className="bg-[#13161f] border-b border-[#2a3045] sticky top-0 z-30">
+    <nav className="bg-[#13161f] border-b border-[#2a3045] sticky top-0 z-30" aria-label="Secciones del panel">
       <div className="max-w-7xl mx-auto px-4 overflow-x-auto scrollbar-thin">
         <div className="flex gap-1 py-2 min-w-max">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setActive(t.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+              aria-current={active === t.id ? "page" : undefined}
+              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-[#13161f] ${
                 active === t.id ? "bg-brand text-white" : "text-slate-400 hover:text-white hover:bg-[#1e2433]"
               }`}
             >
@@ -203,7 +205,7 @@ function SectionDashboard({ resumen, registroDiario }) {
           </div>
         </div>
         <div className="w-full bg-[#13161f] rounded-full h-4 overflow-hidden">
-          <div className="h-4 rounded-full bg-gradient-to-r from-brand to-orange-500 transition-all duration-700"
+          <div className="h-4 rounded-full bg-gradient-to-r from-brand to-orange-500 transition-[width] duration-700 motion-reduce:transition-none"
             style={{ width: `${pctMeta}%` }} />
         </div>
       </div>
@@ -310,7 +312,7 @@ function SectionTurnos({ turnos }) {
                   </span>
                 ) : "—"}
               </Td>
-              <Td className="text-slate-500">{x.nota || "—"}</Td>
+              <Td className="text-slate-500 max-w-[220px] truncate" title={x.nota || undefined}>{x.nota || "—"}</Td>
             </Tr>
           ))}
         </tbody>
@@ -407,7 +409,7 @@ function SectionProyecciones({ registroDiario }) {
           </div>
         </div>
         <div className="w-full bg-[#13161f] rounded-full h-4 overflow-hidden">
-          <div className="h-4 rounded-full bg-gradient-to-r from-brand to-orange-500 transition-all duration-700"
+          <div className="h-4 rounded-full bg-gradient-to-r from-brand to-orange-500 transition-[width] duration-700 motion-reduce:transition-none"
             style={{ width: `${Math.min(pctMeta, 100)}%` }} />
         </div>
         <div className="flex justify-between text-xs text-slate-500 mt-2">
@@ -595,7 +597,7 @@ function SectionMantenimiento({ mantenimiento }) {
               <Td>{m.km ?? "—"} km</Td>
               <Td className="text-red-400">{pesos(m.costo)}</Td>
               <Td>{m.proximoKm ?? "—"} km</Td>
-              <Td className="text-slate-400">{m.notas || "—"}</Td>
+              <Td className="text-slate-400 max-w-[220px] truncate" title={m.notas || undefined}>{m.notas || "—"}</Td>
             </Tr>
           ))}
         </tbody>
@@ -671,8 +673,29 @@ function SectionMundial({ mundial }) {
 
 // ── App ────────────────────────────────────────────────────────────────────
 
-export default function Home() {
-  const [tab, setTab] = useState("dashboard");
+const VALID_TABS = ["dashboard", "turnos", "ranking", "proyecciones", "eficiencia", "mantenimiento", "mundial"];
+
+function DashboardApp() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get("seccion");
+  const [tab, setTabState] = useState(VALID_TABS.includes(tabFromUrl) ? tabFromUrl : "dashboard");
+
+  const setTab = useCallback((id) => {
+    setTabState(id);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("seccion", id);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [router, pathname, searchParams]);
+
+  // Si el usuario navega con atrás/adelante, sincronizamos el tab con la URL
+  useEffect(() => {
+    if (VALID_TABS.includes(tabFromUrl) && tabFromUrl !== tab) {
+      setTabState(tabFromUrl);
+    }
+  }, [tabFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -722,7 +745,7 @@ export default function Home() {
           <div className="bg-red-900/20 border border-red-700 rounded-2xl p-6 text-center">
             <div className="text-red-400 font-bold text-lg mb-2">⚠️ Error al cargar los datos</div>
             <p className="text-red-300 text-sm mb-4">{error}</p>
-            <button onClick={() => fetchData()} className="bg-brand text-white px-4 py-2 rounded-lg text-sm hover:bg-brand-dark">
+            <button onClick={() => fetchData()} className="bg-brand text-white px-4 py-2 rounded-lg text-sm hover:bg-brand-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-[#13161f]">
               Reintentar
             </button>
           </div>
@@ -734,5 +757,13 @@ export default function Home() {
         Gestor de Finanzas — PedidosYa · {INFO.nombre} · {INFO.ciudad} · Datos sincronizados con Google Sheets cada 60 segundos
       </footer>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<Skeleton />}>
+      <DashboardApp />
+    </Suspense>
   );
 }
