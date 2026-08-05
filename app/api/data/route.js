@@ -161,33 +161,6 @@ function parseMantenimiento(rows) {
     }));
 }
 
-function parseMundial(rows) {
-  if (!rows) return [];
-  const hi = findHeaderRow(rows, ['FASE', 'SEDE']);
-  if (hi === -1) return [];
-  return rows.slice(hi + 1)
-    .filter(r => isDate(r[0]))
-    .map(r => ({
-      fecha: r[0],
-      dia: r[1] ?? null,
-      hora: r[2] ?? null,
-      fase: r[3] ?? null,
-      partido: r[4] ?? null,
-      sede: r[5] ?? null,
-      resultadoOficial: r[6] ?? null,
-      resultadoNico: r[7] ?? null,
-      ganancia: num(r[8]),
-      pedidos: num(r[9]),
-      km: num(r[10]),
-      horas: num(r[11]),
-      trabajo: r[12] ?? null,
-      vsPromedio: num(r[13]),
-      clima: r[14] ?? null,
-      energia: num(r[15]),
-      nota: r[16] ?? null,
-    }));
-}
-
 // ── Handler ────────────────────────────────────────────────────────────────
 
 export async function GET() {
@@ -199,19 +172,17 @@ export async function GET() {
   }
 
   try {
-    const [rdRows, tRows, rkRows, mtRows, mwRows] = await Promise.all([
+    const [rdRows, tRows, rkRows, mtRows] = await Promise.all([
       trySheetNames(['📅 Registro Diario', 'Registro Diario', '📝 Registro Diario']),
       trySheetNames(['📅 Turnos', 'Turnos', 'Registro de Turnos', '🗓️ Turnos']),
       trySheetNames(['🏆 Ranking Semanal', 'Ranking Semanal', 'Ranking']),
       trySheetNames(['🏍️ Mantenimiento', 'Mantenimiento', '🔧 Mantenimiento']),
-      trySheetNames(['🏆 Mundial 2026', 'Mundial 2026', '⚽ Mundial 2026']),
     ]);
 
     const registroDiario = parseRegistroDiario(rdRows);
-    const turnos = parseTurnos(tRows);
-    const ranking = parseRanking(rkRows);
-    const mantenimiento = parseMantenimiento(mtRows);
-    const mundial = parseMundial(mwRows);
+    const turnos         = parseTurnos(tRows);
+    const ranking        = parseRanking(rkRows);
+    const mantenimiento  = parseMantenimiento(mtRows);
 
     // Resumen calculado desde los datos reales
     const turnosPresentes = turnos.filter(t => t.presento);
@@ -247,7 +218,6 @@ export async function GET() {
       turnos,
       ranking,
       mantenimiento,
-      mundial,
     });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });

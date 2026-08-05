@@ -147,7 +147,6 @@ function NavTabs({ active, setActive }) {
     { id: "proyecciones", label: "🎯 Proyecciones" },
     { id: "eficiencia", label: "⚡ Eficiencia" },
     { id: "mantenimiento", label: "🔧 Mantenimiento" },
-    { id: "mundial", label: "⚽ Mundial" },
   ];
   return (
     <nav className="bg-[#13161f] border-b border-[#2a3045] sticky top-0 z-30" aria-label="Secciones del panel">
@@ -606,71 +605,6 @@ function SectionMantenimiento({ mantenimiento }) {
   );
 }
 
-function SectionMundial({ mundial }) {
-  const mw = mundial || [];
-  const hoy = new Date();
-  const parseDate = (s) => { const [d, m, a] = String(s).split('/'); return new Date(a, m - 1, d); };
-  const trabajados = mw.filter(m => m.trabajo && String(m.trabajo).toUpperCase().includes('SI'));
-  const ganTotal = trabajados.reduce((a, m) => a + (m.ganancia || 0), 0);
-
-  return (
-    <div>
-      <SectionTitle emoji="⚽" title="Mundial 2026 — Argentina" />
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-        <Card label="Partidos de Argentina" value={mw.length} color="text-blue-400" />
-        <Card label="Días trabajados" value={`${trabajados.length} / ${mw.length}`} color="text-emerald-400" />
-        <Card label="Ganancia período" value={pesos(ganTotal || null)} color="text-yellow-400" />
-      </div>
-
-      <div className="space-y-3">
-        {mw.map((m, i) => {
-          let fechaObj;
-          try { fechaObj = parseDate(m.fecha); } catch { fechaObj = null; }
-          const esFuturo = fechaObj ? fechaObj > hoy : false;
-          const esFinal = String(m.fase || '').toUpperCase().includes('FINAL');
-          const hayResultado = m.resultadoOficial && m.resultadoOficial !== '—' && m.resultadoOficial !== '';
-
-          return (
-            <div key={i} className={`rounded-2xl border p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3
-              ${esFinal ? "border-yellow-500 bg-yellow-900/10" : "border-[#2a3045] bg-[#1a1f2e]"}`}>
-              <div className="flex items-center gap-4">
-                <div className="text-center min-w-[70px]">
-                  <div className="text-slate-400 text-xs">{m.dia}</div>
-                  <div className="text-white font-bold">{String(m.fecha || '').slice(0, 5)}</div>
-                  <div className="text-brand text-sm font-semibold">{m.hora}</div>
-                </div>
-                <div>
-                  <div className={`font-bold text-lg ${esFinal ? "text-yellow-400" : "text-white"}`}>{m.partido}</div>
-                  <div className="text-slate-400 text-sm">{m.fase}</div>
-                  <div className="text-slate-500 text-xs">{m.sede}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 flex-wrap">
-                {hayResultado ? (
-                  <div className="bg-emerald-900/40 border border-emerald-700 rounded-xl px-4 py-2 text-center">
-                    <div className="text-xs text-slate-400">Resultado</div>
-                    <div className="text-emerald-400 font-bold">{m.resultadoOficial}</div>
-                  </div>
-                ) : esFuturo ? (
-                  <Badge ok={null}>Próximo 📅</Badge>
-                ) : (
-                  <Badge ok={null}>Sin resultado</Badge>
-                )}
-                {m.ganancia != null && (
-                  <div className="bg-[#13161f] rounded-xl px-3 py-2 text-center">
-                    <div className="text-xs text-slate-400">Ganancia</div>
-                    <div className="text-emerald-400 font-semibold">{pesos(m.ganancia)}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ── App ────────────────────────────────────────────────────────────────────
 
 const VALID_TABS = ["dashboard", "turnos", "ranking", "proyecciones", "eficiencia", "mantenimiento", "mundial"];
@@ -731,7 +665,6 @@ function DashboardApp() {
     proyecciones: <SectionProyecciones registroDiario={data?.registroDiario} />,
     eficiencia: <SectionEficiencia registroDiario={data?.registroDiario} />,
     mantenimiento: <SectionMantenimiento mantenimiento={data?.mantenimiento} />,
-    mundial: <SectionMundial mundial={data?.mundial} />,
   };
 
   return (
