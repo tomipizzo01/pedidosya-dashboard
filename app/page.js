@@ -147,6 +147,7 @@ function NavTabs({ active, setActive }) {
     { id: "proyecciones", label: "🎯 Proyecciones" },
     { id: "eficiencia", label: "⚡ Eficiencia" },
     { id: "mantenimiento", label: "🔧 Mantenimiento" },
+    { id: "guia",         label: "📬 Guía de Correos" },
   ];
   return (
     <nav className="bg-[#13161f] border-b border-[#2a3045] sticky top-0 z-30" aria-label="Secciones del panel">
@@ -605,9 +606,322 @@ function SectionMantenimiento({ mantenimiento }) {
   );
 }
 
+// ── Sección Guía de Correos ────────────────────────────────────────────────
+
+function GuiaEmailCard({ icon, iconBg, tag, tagColor, title, freq, desc, items }) {
+  return (
+    <div className="bg-[#1a1f2e] rounded-2xl border border-[#2a3045] overflow-hidden mb-4">
+      <div className="flex items-start gap-4 p-5 border-b border-[#2a3045]">
+        <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${iconBg}`}>{icon}</div>
+        <div className="flex-1 min-w-0">
+          <span className={`inline-block text-xs font-bold tracking-widest uppercase px-2 py-0.5 rounded-full mb-1 ${tagColor}`}>{tag}</span>
+          <div className="text-white font-bold text-sm mb-0.5">{title}</div>
+          <div className="text-slate-500 text-xs">{freq}</div>
+        </div>
+      </div>
+      <div className="p-5">
+        <p className="text-slate-300 text-sm leading-relaxed mb-4">{desc}</p>
+        <div className="flex flex-col gap-2">
+          {items.map((item, i) => (
+            <div key={i} className="flex gap-3 items-start bg-[#13161f] rounded-xl p-3">
+              <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${item.dot}`} />
+              <div>
+                <div className="text-white text-xs font-semibold mb-0.5">{item.title}</div>
+                <div className="text-slate-400 text-xs leading-relaxed">{item.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GuiaScenario({ title, children }) {
+  return (
+    <div className="bg-[#1a1f2e] border border-[#2a3045] border-l-4 border-l-brand rounded-xl p-4 mb-3">
+      <div className="text-white text-sm font-bold mb-2">{title}</div>
+      <div className="text-slate-300 text-sm leading-relaxed">{children}</div>
+    </div>
+  );
+}
+
+function GuiaFaq() {
+  const [open, setOpen] = useState(null);
+  const faqs = [
+    { q: "¿Cuándo llegan los correos?", a: "Todos los correos son semanales y automáticos. Se envían el lunes a la mañana con los datos de la semana anterior. No hay que hacer nada — siempre que haya datos cargados en la planilla, los correos llegan solos." },
+    { q: "¿Qué pasa si una semana no trabajé?", a: "El sistema envía el correo igual, pero con los totales en cero. Los promedios históricos toman en cuenta solo las semanas con datos reales, así que una semana sin datos no arruina los análisis anteriores." },
+    { q: "¿Qué hago si veo un número que me parece incorrecto?", a: "Primero revisá la planilla de Google Sheets para ese período. El correo muestra exactamente lo que está cargado. Si hay un error, corregís el dato en la planilla y el próximo correo ya va a reflejar la corrección." },
+    { q: "¿Por qué algunas filas del correo muestran $0?", a: "Si ves $0 en una sección (por ejemplo 'Clima: Tormenta — $0'), significa que esa semana no hubo registros con ese dato. Si todos los días registraste 'Soleado', la fila de Tormenta va a ser $0. Es correcto, no es un error." },
+    { q: "¿Qué significa el 'nivel de energía' y cómo lo elijo?", a: "Es una escala del 1 al 5 que completás al registrar el turno, según cómo te sentiste: 1 = muy cansado, 3 = día normal, 5 = con toda la energía. No hay respuesta correcta — solo importa que sea honesto, porque así el análisis tiene valor real." },
+    { q: "¿Por qué Emilia recibe correos de los turnos de Nico?", a: "Porque la economía del hogar depende del trabajo de Nico, y la transparencia fortalece la planificación familiar. Emilia recibe versiones adaptadas — no todos los datos técnicos, sino los que le permiten planificar gastos y estar alineada con la situación financiera real." },
+    { q: "¿Cuánto tiempo hay que usar el sistema para que los datos sean útiles?", a: "Los primeros correos ya muestran datos útiles desde la primera semana. Pero los análisis más valiosos — detectar patrones de días, correlaciones de clima o energía — necesitan al menos 3 o 4 semanas de datos para ser confiables. Después de un mes de uso consistente, los insights son imposibles de ver a ojo." },
+    { q: "¿Qué pasa si me olvido de registrar datos de un día?", a: "Podés cargarlos después — la planilla acepta entradas con fechas pasadas. Lo ideal es hacerlo antes del lunes para que el correo de esa semana ya los incluya. Si los cargás después del envío, no afectan el correo ya enviado, pero quedan en el historial para análisis futuros." },
+    { q: "¿Puedo pedir que se cambie algo en los correos?", a: "Sí. Los correos son configurables. Si una sección no es útil, si querés agregar un tipo de análisis, o si el lenguaje de alguna parte no se entiende, podés pedirle al administrador del sistema que lo modifique." },
+  ];
+  return (
+    <div className="flex flex-col gap-2">
+      {faqs.map((f, i) => (
+        <div key={i} className="bg-[#1a1f2e] rounded-xl border border-[#2a3045] overflow-hidden">
+          <button
+            className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left text-sm font-semibold text-white hover:bg-[#1e2540] transition-colors"
+            onClick={() => setOpen(open === i ? null : i)}
+          >
+            <span>{f.q}</span>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 transition-all ${open === i ? "bg-brand text-white rotate-180" : "bg-[#2a3045] text-slate-400"}`}>▼</span>
+          </button>
+          {open === i && (
+            <div className="px-4 pb-4 text-slate-300 text-sm leading-relaxed border-t border-[#2a3045] pt-3">
+              {f.a}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SectionGuia() {
+  const [subTab, setSubTab] = useState("nico");
+  const subTabs = [
+    { id: "nico",   label: "Para Nicolás" },
+    { id: "emilia", label: "Para Emilia" },
+    { id: "datos",  label: "Por qué registrar" },
+    { id: "faq",    label: "Preguntas frecuentes" },
+  ];
+
+  return (
+    <div>
+      <SectionTitle emoji="📬" title="Guía de Correos" />
+
+      {/* Sub-nav */}
+      <div className="flex gap-1 mb-6 overflow-x-auto scrollbar-thin pb-1">
+        {subTabs.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setSubTab(t.id)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+              subTab === t.id ? "bg-brand text-white" : "text-slate-400 hover:text-white hover:bg-[#1e2433] bg-[#1a1f2e] border border-[#2a3045]"
+            }`}
+          >{t.label}</button>
+        ))}
+      </div>
+
+      {/* ── Para Nicolás ── */}
+      {subTab === "nico" && (
+        <div>
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            <Card label="Correos por semana" value="3" color="text-brand" />
+            <Card label="Métricas analizadas" value="20+" color="text-emerald-400" />
+            <Card label="Automáticos" value="100%" color="text-blue-400" />
+          </div>
+          <div className="bg-blue-900/20 border border-blue-700/40 rounded-xl p-3.5 mb-5 text-blue-300 text-sm leading-relaxed">
+            <strong className="text-blue-200">¿De dónde vienen estos correos?</strong> El sistema analiza automáticamente todos los datos que cargás en la planilla de Google Sheets y te envía un resumen cada semana. Con solo registrar tus turnos, el análisis se genera solo.
+          </div>
+          <GuiaEmailCard
+            icon="📊" iconBg="bg-red-500/15"
+            tag="Solo para Nicolás" tagColor="bg-red-500/15 text-red-400"
+            title='Análisis de eficiencia · [fecha al fecha]'
+            freq="Semanal · Todos los lunes con el resumen de la semana anterior"
+            desc="El correo más completo. Analiza tus patrones de trabajo para identificar cuándo, en qué condiciones y bajo qué circunstancias ganás más. No solo dice cuánto ganaste — explica por qué."
+            items={[
+              { dot: "bg-red-500",    title: "Rendimiento por Día de la Semana", desc: "Muestra cuánto ganaste cada día con un gráfico de barras. Detecta automáticamente tu mejor y peor día: ej. 'Mejor día: Lunes ($135.000) / Peor día: Domingo ($0)'." },
+              { dot: "bg-emerald-500",title: "Rendimiento Histórico Diario", desc: "Tabla con ganancia promedio y pedidos por día de la semana. Útil para ver si hay días que sistemáticamente rinden mejor a lo largo del tiempo." },
+              { dot: "bg-blue-500",   title: "Distribución por Franja Horaria", desc: "Divide tu ganancia en Mañana, Tarde y Noche. Si ganás más a la noche pero trabajás más a la tarde, el sistema te lo señala para re-organizar tus horarios." },
+              { dot: "bg-yellow-500", title: "Impacto de las Variables del Clima", desc: "Compara ganancia y pedidos según el clima registrado: Soleado, Nublado, Lluvia o Tormenta. Descubrís si vale la pena salir en días de lluvia o si tormenta = más pedidos pero mismo dinero." },
+              { dot: "bg-red-500",    title: "Nivel de Energía Personal vs Ganancia", desc: "Cruza el nivel de energía que declaraste (1 a 5) con tu ganancia real. Si los días de energía 5 ganaste el doble que en días de energía 1, el sistema te lo muestra en números concretos." },
+              { dot: "bg-emerald-500",title: "Insights Accionables", desc: "3 o 4 recomendaciones concretas derivadas de tus propios datos de esa semana. No son consejos genéricos — son específicos para vos." },
+            ]}
+          />
+          <GuiaEmailCard
+            icon="📈" iconBg="bg-emerald-500/15"
+            tag="Solo para Nicolás" tagColor="bg-red-500/15 text-red-400"
+            title="Reporte mensual de Nico"
+            freq="Semanal · Se envía junto con el de eficiencia"
+            desc="Mira hacia adelante y hacia atrás: muestra cómo vas en el mes actual y proyecta cuánto podrías cerrar el mes si seguís al ritmo de las últimas semanas."
+            items={[
+              { dot: "bg-emerald-500", title: "Desempeño Gráfico", desc: "Gráfico visual de tu rendimiento semanal. Permite ver si estás en una tendencia ascendente o descendente." },
+              { dot: "bg-blue-500",    title: "Perspectiva de Estabilidad Familiar", desc: "Proyección del ingreso mensual estimado. Le da a Emilia una idea de cuánto dinero va a entrar ese mes para planificar los gastos del hogar." },
+            ]}
+          />
+          <GuiaEmailCard
+            icon="🔧" iconBg="bg-yellow-500/15"
+            tag="Solo para Nicolás" tagColor="bg-red-500/15 text-red-400"
+            title="Estado de tu moto · [fecha]"
+            freq="Semanal · Resumen del estado y gastos de la moto"
+            desc="Tu moto es tu herramienta de trabajo. Este correo registra todos los gastos de mantenimiento, los compara con tu ganancia y te advierte si los costos están comiendo demasiado de tu ingreso."
+            items={[
+              { dot: "bg-yellow-500", title: "Estado del Mantenimiento", desc: "Lista todos los gastos de la moto registrados en la semana: nafta, aceite, reparaciones, neumáticos. Cada gasto con fecha y monto." },
+              { dot: "bg-red-500",    title: "Deducción sobre Ganancia", desc: "Calcula qué porcentaje de tu ganancia bruta se fue en mantenimiento. Si ganaste $200.000 y gastaste $40.000 en la moto, ese número es el 20%. Te ayuda a entender cuánto ganás realmente (neto)." },
+              { dot: "bg-emerald-500",title: "Previsión de Fondos", desc: "Proyección de cuánto queda disponible después de descontar los gastos de la moto. La base para planificar el mes." },
+            ]}
+          />
+        </div>
+      )}
+
+      {/* ── Para Emilia ── */}
+      {subTab === "emilia" && (
+        <div>
+          <div className="bg-blue-900/20 border border-blue-700/40 rounded-xl p-3.5 mb-5 text-blue-300 text-sm leading-relaxed">
+            <strong className="text-blue-200">Para Emilia:</strong> Recibís correos diseñados específicamente para vos — resúmenes financieros del hogar con lenguaje claro, sin jerga técnica. La idea es que puedas planificar los gastos del mes con información real y actualizada cada semana.
+          </div>
+          <GuiaEmailCard
+            icon="📋" iconBg="bg-blue-500/15"
+            tag="Solo para Emilia" tagColor="bg-blue-500/15 text-blue-400"
+            title="Eficiencia de Nico · [fecha al fecha]"
+            freq="Semanal · Versión simplificada del análisis de eficiencia"
+            desc="Es la versión del análisis de eficiencia adaptada para que lo entiendas sin ser del rubro. Te muestra lo más importante: cuánto ganó Nico, cuáles fueron sus mejores momentos y qué factores influyeron."
+            items={[
+              { dot: "bg-blue-500",    title: "Resumen de la Semana", desc: "Ganancia total, pedidos totales y promedio diario. Los tres números clave para entender cómo fue la semana de un vistazo." },
+              { dot: "bg-emerald-500", title: "Mejor y Peor Momento", desc: "Te indica en qué día y horario Nico rindió mejor. Útil para planificar actividades familiares en los días de menor actividad." },
+              { dot: "bg-yellow-500",  title: "Factores que Afectaron el Desempeño", desc: "Resumen del impacto del clima y la energía personal. Si hubo una semana mala, podés ver si fue por lluvia, energía baja, o simplemente pocos pedidos en la zona." },
+            ]}
+          />
+          <GuiaEmailCard
+            icon="💰" iconBg="bg-yellow-500/15"
+            tag="Solo para Emilia" tagColor="bg-blue-500/15 text-blue-400"
+            title="Gastos de la moto · [fecha]"
+            freq="Semanal · Resumen financiero del hogar"
+            desc="El correo más importante para la economía del hogar. Muestra cuánto se gastó en la moto esa semana y cuánto dinero queda disponible para el hogar después de esos gastos."
+            items={[
+              { dot: "bg-yellow-500", title: "Detalle de Gastos", desc: "Lista de cada gasto registrado en la moto con fecha y monto. Transparencia total — podés ver exactamente en qué se gastó." },
+              { dot: "bg-red-500",    title: "Deducción sobre Ganancia", desc: "El porcentaje de la ganancia bruta que se fue en mantenimiento. Si este número sube semana a semana, puede ser señal de que la moto necesita un service preventivo." },
+              { dot: "bg-emerald-500",title: "Previsión de Fondos del Hogar", desc: "La ganancia neta estimada disponible para el hogar. Este es el número con el que planificar el mes: alquiler, comida, servicios, ahorro." },
+            ]}
+          />
+          <div className="bg-yellow-900/20 border border-yellow-700/40 rounded-xl p-3.5 mb-5 text-yellow-300 text-sm leading-relaxed">
+            <strong className="text-yellow-200">Tip para Emilia:</strong> Si ves que el porcentaje de deducción fue mayor al 20%, es buen momento para hablar con Nico sobre ese gasto. Mejor gastar $10.000 en mantenimiento preventivo que $80.000 en una reparación de emergencia.
+          </div>
+          <p className="text-white font-bold mb-1">Ejemplo real: cómo usar estos correos</p>
+          <p className="text-slate-400 text-sm mb-3">Situación típica de una semana para Emilia</p>
+          <GuiaScenario title="Emilia planifica los gastos del mes">
+            Emilia recibe el lunes el correo "Gastos de la moto". Ve que Nico ganó{" "}
+            <span className="bg-emerald-500/20 text-emerald-400 font-semibold px-1.5 py-0.5 rounded text-xs">$320.000 brutos</span>{" "}
+            esa semana, pero hubo un gasto de{" "}
+            <span className="bg-red-500/20 text-red-400 font-semibold px-1.5 py-0.5 rounded text-xs">$45.000 en neumáticos</span>.
+            Le quedan disponibles{" "}
+            <span className="bg-emerald-500/20 text-emerald-400 font-semibold px-1.5 py-0.5 rounded text-xs">$275.000 netos</span>.
+            <br /><br />
+            Con ese dato puede decidir cuánto destinar al supermercado sin esperar que Nico cuente el efectivo.
+            <strong className="text-white"> Sin el correo</strong>: dependería de que Nico recuerde contarle el gasto, o lo descubriría cuando ya es tarde.
+          </GuiaScenario>
+        </div>
+      )}
+
+      {/* ── Por qué registrar datos ── */}
+      {subTab === "datos" && (
+        <div>
+          <div className="bg-blue-900/20 border border-blue-700/40 rounded-xl p-3.5 mb-5 text-blue-300 text-sm leading-relaxed">
+            <strong className="text-blue-200">La regla de oro:</strong> El sistema solo puede analizar lo que existe. Si no registrás el clima, la columna de clima aparece vacía. Si no registrás la energía, no hay análisis de energía.{" "}
+            <strong className="text-blue-200">Cada campo que no completás es un análisis que no podés leer.</strong>
+          </div>
+          <p className="text-white font-bold mb-1">¿Qué datos hay que registrar?</p>
+          <p className="text-slate-400 text-sm mb-3">Por cada turno que hacés, el sistema necesita esta información</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+            {[
+              { label: "Fecha", val: "📅 El día del turno", why: "Permite separar por día de semana y calcular totales semanales/mensuales." },
+              { label: "Ganancia", val: "💵 Monto en pesos", why: "El número más importante. Sin él, ningún análisis financiero es posible." },
+              { label: "Pedidos", val: "📦 Cantidad", why: "Permite calcular ganancia por pedido y detectar si bajan los pedidos o el valor de cada uno." },
+              { label: "Franja Horaria", val: "🕐 Mañana / Tarde / Noche", why: "El análisis de franja solo funciona si registrás en qué horario trabajaste." },
+              { label: "Clima", val: "🌤 Soleado/Nublado/Lluvia/Tormenta", why: "Sin este dato, la tabla de 'Impacto del Clima' no puede mostrarte si la lluvia te beneficia o perjudica." },
+              { label: "Nivel de Energía", val: "⚡ Del 1 al 5", why: "Revela si hay correlación entre cómo te sentís y cuánto rendís. Información que no existe en ningún otro lado." },
+            ].map((d, i) => (
+              <div key={i} className="bg-[#1a1f2e] rounded-xl border border-[#2a3045] p-4">
+                <div className="text-xs font-bold tracking-widest uppercase text-slate-500 mb-1">{d.label}</div>
+                <div className="text-white font-semibold text-sm mb-1">{d.val}</div>
+                <div className="text-slate-400 text-xs leading-relaxed">{d.why}</div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-white font-bold mb-1">¿Qué pasa si no registrás?</p>
+          <p className="text-slate-400 text-sm mb-3">La diferencia entre un correo completo y uno con datos faltantes</p>
+
+          {[
+            {
+              theme: "Clima",
+              bad: ["La columna 'Volumen Pedidos' muestra {PED_LLUVIA} en lugar de números", "No podés saber si conviene salir en días de lluvia", "El análisis de clima queda vacío o con ceros"],
+              good: ["La tabla muestra pedidos reales por cada tipo de clima", "El sistema detecta que lluvia = más pedidos pero menos ganancia por pedido", "Podés decidir si vale la pena mojarse con datos reales"],
+            },
+            {
+              theme: "Nivel de energía",
+              bad: ["La sección 'Energía vs Ganancia' queda con todos ceros", "No sabés si los días que te sentís mal realmente rendís menos", "No podés planificar tus días fuertes estratégicamente"],
+              good: ["El sistema muestra que en días de energía 5 ganás $80.000 más en promedio", "Sabés que si te sentís mal, mejor hacer un turno corto", "Podés reservar los días de mayor demanda para cuando estés en tu mejor estado"],
+            },
+          ].map((c, i) => (
+            <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div className="bg-red-500/8 border border-red-500/25 rounded-xl p-4">
+                <div className="text-xs font-bold tracking-widest uppercase text-red-400 mb-3">❌ Sin datos de {c.theme}</div>
+                {c.bad.map((b, j) => <div key={j} className="text-slate-300 text-xs py-1.5 border-b border-[#2a3045] last:border-b-0">{b}</div>)}
+              </div>
+              <div className="bg-emerald-500/8 border border-emerald-500/25 rounded-xl p-4">
+                <div className="text-xs font-bold tracking-widest uppercase text-emerald-400 mb-3">✅ Con datos de {c.theme}</div>
+                {c.good.map((g, j) => <div key={j} className="text-slate-300 text-xs py-1.5 border-b border-[#2a3045] last:border-b-0">{g}</div>)}
+              </div>
+            </div>
+          ))}
+
+          <p className="text-white font-bold mt-6 mb-1">Situaciones de ejemplo</p>
+          <p className="text-slate-400 text-sm mb-3">Para entender el valor real de cada dato registrado</p>
+
+          <GuiaScenario title="Escenario 1: ¿Me conviene salir cuando llueve?">
+            Nicolás nota que cuando llueve tiene más trabajo pero llega agotado. ¿Vale la pena?
+            <br /><br />
+            Después de 4 semanas registrando el clima, el correo le muestra:{" "}
+            <span className="bg-red-500/20 text-red-400 font-semibold px-1.5 py-0.5 rounded text-xs">Lluvia: 18 pedidos · $11.500/pedido</span>{" "}
+            vs{" "}
+            <span className="bg-emerald-500/20 text-emerald-400 font-semibold px-1.5 py-0.5 rounded text-xs">Soleado: 12 pedidos · $13.200/pedido</span>.
+            <br /><br />
+            Con ese dato podés decidir si salir en lluvia es una elección personal, no económica.
+          </GuiaScenario>
+
+          <GuiaScenario title="Escenario 2: Los viernes me parece que rindo mejor">
+            Nicolás siempre sintió que los viernes eran sus mejores días, pero no tenía forma de probarlo.
+            <br /><br />
+            El correo le muestra:{" "}
+            <span className="bg-emerald-500/20 text-emerald-400 font-semibold px-1.5 py-0.5 rounded text-xs">Viernes: $145.000 promedio</span>{" "}
+            vs{" "}
+            <span className="bg-red-500/20 text-red-400 font-semibold px-1.5 py-0.5 rounded text-xs">Miércoles: $67.000 promedio</span>.
+            Ahora puede decidir más horas los viernes, y tomarse los miércoles más tranquilo sin culpa.
+          </GuiaScenario>
+
+          <GuiaScenario title="Escenario 3: La moto come demasiado del sueldo">
+            Emilia nota que esa semana la deducción fue del{" "}
+            <span className="bg-red-500/20 text-red-400 font-semibold px-1.5 py-0.5 rounded text-xs">28%</span>{" "}
+            cuando normalmente es del 10-12%. Abre el correo y ve una reparación de frenos de $60.000.
+            <br /><br />
+            Con ese dato, pueden charlar sobre armar un fondo de mantenimiento mensual para que estos gastos inesperados no desequilibren la economía del hogar.
+          </GuiaScenario>
+
+          <GuiaScenario title="Escenario 4: La energía personal como dato laboral">
+            Nicolás registra su energía por un mes. El sistema le muestra que en días de energía 1-2, gana{" "}
+            <span className="bg-red-500/20 text-red-400 font-semibold px-1.5 py-0.5 rounded text-xs">$42.000 promedio</span>.
+            En días de energía 4-5:{" "}
+            <span className="bg-emerald-500/20 text-emerald-400 font-semibold px-1.5 py-0.5 rounded text-xs">$98.000 promedio</span>.
+            <br /><br />
+            Conclusión: salir a trabajar mal descansado no solo es agotador, <strong className="text-white">es económicamente ineficiente</strong>. Descansar un día que te sentís mal puede ser más rentable que insistir.
+          </GuiaScenario>
+        </div>
+      )}
+
+      {/* ── FAQ ── */}
+      {subTab === "faq" && (
+        <div>
+          <div className="bg-blue-900/20 border border-blue-700/40 rounded-xl p-3.5 mb-5 text-blue-300 text-sm leading-relaxed">
+            Si tu pregunta no está acá, cualquier duda sobre los correos o el sistema se puede resolver directamente con quien configuró el gestor.
+          </div>
+          <p className="text-white font-bold mb-1">Preguntas Frecuentes</p>
+          <p className="text-slate-400 text-sm mb-4">Las dudas más comunes de Nicolás y Emilia</p>
+          <GuiaFaq />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── App ────────────────────────────────────────────────────────────────────
 
-const VALID_TABS = ["dashboard", "turnos", "ranking", "proyecciones", "eficiencia", "mantenimiento", "mundial"];
+const VALID_TABS = ["dashboard", "turnos", "ranking", "proyecciones", "eficiencia", "mantenimiento", "guia"];
 
 function DashboardApp() {
   const router = useRouter();
@@ -665,6 +979,7 @@ function DashboardApp() {
     proyecciones: <SectionProyecciones registroDiario={data?.registroDiario} />,
     eficiencia: <SectionEficiencia registroDiario={data?.registroDiario} />,
     mantenimiento: <SectionMantenimiento mantenimiento={data?.mantenimiento} />,
+    guia: <SectionGuia />,
   };
 
   return (
@@ -672,7 +987,9 @@ function DashboardApp() {
       <Header lastUpdated={data?.lastUpdated} refreshing={refreshing} onRefresh={() => fetchData(true)} />
       <NavTabs active={tab} setActive={setTab} />
       <main className="max-w-7xl mx-auto px-4 md:px-8 py-8">
-        {loading ? (
+        {tab === "guia" ? (
+          <SectionGuia />
+        ) : loading ? (
           <Skeleton />
         ) : error ? (
           <div className="bg-red-900/20 border border-red-700 rounded-2xl p-6 text-center">
