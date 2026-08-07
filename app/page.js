@@ -48,7 +48,7 @@ function SectionTitle({ emoji, title }) {
 
 function Card({ label, value, sub, color }) {
   return (
-    <div className="bg-[#1a1f2e] rounded-2xl p-5 border border-[#2a3045] flex flex-col gap-1">
+    <div className="bg-[#1a1f2e] rounded-2xl p-5 border border-[#2a3045] flex flex-col gap-1 transition-colors duration-150 hover:border-[#3a4060] hover:bg-[#1e2438]">
       <span className="text-xs text-slate-400 uppercase tracking-wider">{label}</span>
       <span className={`text-2xl font-bold tabular-nums ${color || "text-brand"}`}>{value}</span>
       {sub && <span className="text-xs text-slate-500 mt-1">{sub}</span>}
@@ -79,6 +79,57 @@ const EmptyRow = ({ cols, msg = "Sin datos registrados aún" }) => (
   <tr><td colSpan={cols} className="px-4 py-8 text-center text-slate-500 italic">{msg}</td></tr>
 );
 
+// ── BarChart (dataviz skill) ───────────────────────────────────────────────
+// Forma: barras verticales — ideal para comparar magnitudes entre categorías.
+// Colores: categorical fijo (#FA0050 brand + tonos del sistema).
+// Hover: tooltip nativo sobre cada barra.
+// Accesibilidad: la tabla preexistente actúa como fallback de datos.
+
+function BarChart({ data, formatValue = (v) => String(v), height = 140, barColor = "#FA0050" }) {
+  const [hovered, setHovered] = useState(null);
+  const values = data.map(d => d.value ?? 0);
+  const max = Math.max(...values, 1);
+
+  return (
+    <div className="relative select-none" style={{ height }} aria-hidden="true">
+      <div className="flex items-end gap-[3px] h-full pt-6">
+        {data.map((d, i) => {
+          const pct = (Math.max(d.value ?? 0, 0) / max) * 100;
+          const isHov = hovered === i;
+          const hasValue = (d.value ?? 0) > 0;
+          return (
+            <div
+              key={i}
+              className="flex flex-col items-center flex-1 h-full justify-end relative"
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+            >
+              {isHov && hasValue && (
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 bg-[#0e1118] border border-[#2a3045] text-white text-[10px] px-2 py-1 rounded-lg whitespace-nowrap z-10 font-bold shadow-xl pointer-events-none">
+                  {formatValue(d.value)}
+                </div>
+              )}
+              <div
+                className="w-full rounded-t-[3px] transition-all duration-150 ease-out cursor-default"
+                style={{
+                  height: hasValue ? `${Math.max(pct, 1.5)}%` : "2px",
+                  backgroundColor: isHov ? "#ff3060" : barColor,
+                  opacity: hasValue ? (isHov ? 1 : 0.78) : 0.2,
+                }}
+              />
+              <div className="text-[9px] text-slate-500 mt-1 text-center leading-tight truncate w-full px-[1px]">
+                {d.label}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Línea base */}
+      <div className="absolute bottom-[18px] left-0 right-0 h-px bg-[#2a3045]" />
+    </div>
+  );
+}
+
 // ── Skeleton loader ────────────────────────────────────────────────────────
 
 function Skeleton() {
@@ -105,7 +156,7 @@ function Header({ lastUpdated, refreshing, onRefresh }) {
             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl" aria-hidden="true">🛵</div>
             <span className="text-white/80 text-sm font-medium tracking-widest uppercase">PedidosYa · Tucumán</span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-black text-white leading-tight">Gestor de Finanzas</h1>
+          <h1 className="text-3xl md:text-4xl font-black text-white leading-tight" style={{ textWrap: "balance" }}>Gestor de Finanzas</h1>
           <p className="text-white/70 mt-1 text-sm">
             Cadete: <span className="text-white font-semibold">{INFO.nombre}</span> · Desde {INFO.inicioRegistro}
           </p>
@@ -123,9 +174,10 @@ function Header({ lastUpdated, refreshing, onRefresh }) {
             <button
               onClick={onRefresh}
               disabled={refreshing}
+              aria-label={refreshing ? "Actualizando datos…" : "Actualizar datos ahora"}
               className="bg-white/20 hover:bg-white/30 text-white text-xs px-3 py-1.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#8B0000] disabled:opacity-50"
             >
-              {refreshing ? "⏳ Actualizando…" : "🔄 Actualizar"}
+              <span aria-hidden="true">{refreshing ? "⏳" : "🔄"}</span> {refreshing ? "Actualizando…" : "Actualizar"}
             </button>
             <span className="text-white/50 text-xs tabular-nums" aria-live="polite">
               {lastUpdated ? `Actualizado: ${fmt(lastUpdated)}` : ""}
@@ -227,6 +279,22 @@ function SectionDashboard({ resumen, registroDiario }) {
           ))}
         </div>
       </div>
+
+      {/* Chart: ganancia últimos 14 días */}
+      {registroDiario && registroDiario.length > 0 && (
+        <div className="bg-[#1a1f2e] border border-[#2a3045] rounded-2xl p-5 mb-6">
+          <h3 className="text-slate-300 font-semibold mb-1 text-sm">📈 Ganancia real — últimos días</h3>
+          <p className="text-slate-500 text-xs mb-4">Pasá el cursor sobre las barras para ver el monto exacto</p>
+          <BarChart
+            height={130}
+            data={[...registroDiario].slice(-14).map(r => ({
+              label: r.fecha ? r.fecha.split('/').slice(0,2).join('/') : "—",
+              value: r.gananciaReal ?? 0,
+            }))}
+            formatValue={pesos}
+          />
+        </div>
+      )}
 
       {/* Últimos registros */}
       {registroDiario && registroDiario.length > 0 && (
@@ -470,6 +538,20 @@ function SectionEficiencia({ registroDiario }) {
     <div className="space-y-8">
       <SectionTitle emoji="⚡" title="Análisis de Eficiencia" />
 
+      {/* Chart: ganancia por día de semana */}
+      <div className="bg-[#1a1f2e] border border-[#2a3045] rounded-2xl p-5">
+        <h3 className="text-slate-300 font-semibold mb-1 text-sm">📅 Ganancia promedio por día de semana</h3>
+        <p className="text-slate-500 text-xs mb-4">Promedio histórico de ganancia real por cada día</p>
+        <BarChart
+          height={130}
+          data={Object.entries(byDia).map(([dia, rows]) => ({
+            label: dia.slice(0, 3),
+            value: avg(rows, 'gananciaReal') ?? 0,
+          }))}
+          formatValue={pesos}
+        />
+      </div>
+
       {/* Por día de semana */}
       <div>
         <h3 className="text-slate-300 font-semibold mb-3">📅 Rendimiento por día de semana</h3>
@@ -495,6 +577,23 @@ function SectionEficiencia({ registroDiario }) {
           </tbody>
         </TableWrapper>
       </div>
+
+      {/* Chart: ganancia por clima */}
+      {Object.keys(byClima).length > 0 && (
+        <div className="bg-[#1a1f2e] border border-[#2a3045] rounded-2xl p-5">
+          <h3 className="text-slate-300 font-semibold mb-1 text-sm">🌤️ Ganancia promedio por clima</h3>
+          <p className="text-slate-500 text-xs mb-4">Impacto del clima en la ganancia diaria promedio</p>
+          <BarChart
+            height={110}
+            barColor="#3b82f6"
+            data={Object.entries(byClima).map(([clima, rows]) => ({
+              label: clima.slice(0, 4),
+              value: avg(rows, 'gananciaReal') ?? 0,
+            }))}
+            formatValue={pesos}
+          />
+        </div>
+      )}
 
       {/* Por clima */}
       {Object.keys(byClima).length > 0 && (
@@ -666,15 +765,22 @@ function GuiaFaq() {
           <button
             className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left text-sm font-semibold text-white hover:bg-[#1e2540] transition-colors"
             onClick={() => setOpen(open === i ? null : i)}
+            aria-expanded={open === i}
           >
             <span>{f.q}</span>
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 transition-all ${open === i ? "bg-brand text-white rotate-180" : "bg-[#2a3045] text-slate-400"}`}>▼</span>
+            <span
+              aria-hidden="true"
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 transition-all duration-200 ${open === i ? "bg-brand text-white rotate-180" : "bg-[#2a3045] text-slate-400"}`}
+            >▼</span>
           </button>
-          {open === i && (
+          <div
+            className="overflow-hidden transition-all duration-200 ease-out"
+            style={{ maxHeight: open === i ? "400px" : "0px" }}
+          >
             <div className="px-4 pb-4 text-slate-300 text-sm leading-relaxed border-t border-[#2a3045] pt-3">
               {f.a}
             </div>
-          )}
+          </div>
         </div>
       ))}
     </div>
@@ -984,16 +1090,23 @@ function DashboardApp() {
 
   return (
     <div className="min-h-screen">
+      {/* Skip link — accesibilidad teclado */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-brand focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-semibold"
+      >
+        Ir al contenido principal
+      </a>
       <Header lastUpdated={data?.lastUpdated} refreshing={refreshing} onRefresh={() => fetchData(true)} />
       <NavTabs active={tab} setActive={setTab} />
-      <main className="max-w-7xl mx-auto px-4 md:px-8 py-8">
+      <main id="main-content" className="max-w-7xl mx-auto px-4 md:px-8 py-8">
         {tab === "guia" ? (
           <SectionGuia />
         ) : loading ? (
           <Skeleton />
         ) : error ? (
-          <div className="bg-red-900/20 border border-red-700 rounded-2xl p-6 text-center">
-            <div className="text-red-400 font-bold text-lg mb-2">⚠️ Error al cargar los datos</div>
+          <div className="bg-red-900/20 border border-red-700 rounded-2xl p-6 text-center" role="alert" aria-live="assertive">
+            <div className="text-red-400 font-bold text-lg mb-2"><span aria-hidden="true">⚠️</span> Error al cargar los datos</div>
             <p className="text-red-300 text-sm mb-4">{error}</p>
             <button onClick={() => fetchData()} className="bg-brand text-white px-4 py-2 rounded-lg text-sm hover:bg-brand-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-[#13161f]">
               Reintentar
