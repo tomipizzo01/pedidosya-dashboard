@@ -23,16 +23,26 @@ export async function GET() {
   const SHEET_ID = process.env.GOOGLE_SHEET_ID;
   const sheets = await getSheetsClient();
 
-  // Leer valores + fórmulas de la hoja Ranking Semanal
+  // Primero listar todas las hojas para encontrar el nombre exacto
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+  const todasHojas = meta.data.sheets.map(s => s.properties.title);
+
+  const candidatos = ['🏆 Ranking Semanal', 'Ranking Semanal', 'Ranking'];
+  const nombreHoja = candidatos.find(c => todasHojas.includes(c));
+
+  if (!nombreHoja) {
+    return NextResponse.json({ error: 'Hoja Ranking no encontrada', hojasDisponibles: todasHojas });
+  }
+
   const [valores, formulas] = await Promise.all([
     sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: "'🏆 Ranking Semanal'!A1:Z60",
+      range: `'${nombreHoja}'!A1:Z60`,
       valueRenderOption: 'FORMATTED_VALUE',
     }),
     sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: "'🏆 Ranking Semanal'!A1:Z60",
+      range: `'${nombreHoja}'!A1:Z60`,
       valueRenderOption: 'FORMULA',
     }),
   ]);
@@ -40,7 +50,6 @@ export async function GET() {
   const vals = valores.data.values || [];
   const fmls = formulas.data.values || [];
 
-  // Combinar: para cada celda mostrar valor + fórmula si es distinta
   const resultado = fmls.map((row, r) =>
     row.map((cell, c) => {
       const val = vals[r]?.[c] ?? '';
@@ -49,5 +58,5 @@ export async function GET() {
     })
   );
 
-  return NextResponse.json({ filas: resultado, totalFilas: fmls.length, totalCols: Math.max(...fmls.map(r => r.length)) });
+  return NextResponse.json({ nombreHoja, filas: resultado, totalFilas: fmls.length, totalCols: Math.max(0, ...fmls.map(r => r.length)) });
 }
