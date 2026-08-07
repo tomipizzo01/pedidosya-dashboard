@@ -26,27 +26,23 @@ export async function GET() {
     const auth = await getAuth();
     const SHEET_ID = process.env.GOOGLE_SHEET_ID;
 
-    // Buscar el script vinculado al Spreadsheet via Drive API
-    const drive = google.drive({ version: 'v3', auth });
-    const driveRes = await drive.files.list({
-      q: `mimeType='application/vnd.google-apps.script' and parents in '${SHEET_ID}'`,
-      fields: 'files(id, name)',
+    // Intentar acceder al script con el ID del spreadsheet directamente
+    const script = google.script({ version: 'v1', auth });
+    const project = await script.projects.getContent({ scriptId: SHEET_ID });
+
+    const files = project.data.files || [];
+    return NextResponse.json({
+      totalFiles: files.length,
+      files: files.map(f => ({
+        name: f.name,
+        type: f.type,
+        mundialLines: (f.source || '').split('\n')
+          .map((line, i) => ({ n: i + 1, line }))
+          .filter(({ line }) => /mundial|world.?cup|⚽|copa|fixture|grupo[s]?\s*(mundial|copa)/i.test(line)),
+        totalLines: (f.source || '').split('\n').length,
+      })),
     });
-
-    // Si no lo encuentra por parent, intentar buscar por nombre
-    let scriptFiles = driveRes.data.files || [];
-
-    if (scriptFiles.length === 0) {
-      // Buscar script asociado buscando en todos los scripts
-      const allScripts = await drive.files.list({
-        q: `mimeType='application/vnd.google-apps.script'`,
-        fields: 'files(id, name)',
-      });
-      scriptFiles = allScripts.data.files || [];
-    }
-
-    return NextResponse.json({ scriptFiles, sheetId: SHEET_ID });
   } catch (err) {
-    return NextResponse.json({ error: err.message, stack: err.stack }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
