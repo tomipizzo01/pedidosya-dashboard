@@ -13,15 +13,12 @@ async function getAuth() {
   if (credentials.private_key) credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
   return new google.auth.GoogleAuth({
     credentials,
-    scopes: [
-      'https://www.googleapis.com/auth/script.projects',
-      'https://www.googleapis.com/auth/drive',
-    ],
+    scopes: ['https://www.googleapis.com/auth/script.projects'],
   });
 }
 
 const SCRIPT_ID = '1cRTO3NmZ6NJLrh1-Ud_Hwi1oJePe2chHac42d09TpdsZXDI_mkrkWQwn';
-const MUNDIAL_RE = /mundial|world.?cup|⚽|fixture|grupo[s]?\s*(mundial|copa)/i;
+const AFFECTED = ['EmailTemplates', 'Estadisticas', 'FormularioDiario', 'MejoresDatos', 'WebApp'];
 
 export async function GET() {
   try {
@@ -30,20 +27,14 @@ export async function GET() {
     const res = await script.projects.getContent({ scriptId: SCRIPT_ID });
     const files = res.data.files || [];
 
-    return NextResponse.json({
-      totalFiles: files.length,
-      files: files.map(f => {
-        const lines = (f.source || '').split('\n');
-        return {
-          name: f.name,
-          type: f.type,
-          totalLines: lines.length,
-          mundialMatches: lines
-            .map((line, i) => ({ n: i + 1, line: line.trim() }))
-            .filter(({ line }) => MUNDIAL_RE.test(line)),
-        };
-      }),
-    });
+    const result = {};
+    for (const f of files) {
+      if (AFFECTED.includes(f.name)) {
+        result[f.name] = f.source;
+      }
+    }
+
+    return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
