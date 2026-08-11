@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import Sidebar from '../../../components/Sidebar';
+import Sidebar from '../../../../components/Sidebar';
 
 const C = { bg: '#080808', border: '#1c1c1c', text: '#e5e5e5', muted: '#525252', accent: '#e03535', green: '#16a34a' };
 const DIAS   = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
