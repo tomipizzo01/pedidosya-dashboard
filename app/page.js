@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, Suspense } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Sidebar from "../components/Sidebar";
 
 // ── Tokens ─────────────────────────────────────────────────────────────────
@@ -145,30 +145,6 @@ function Header({ config, resumen, lastUpdated, refreshing, onRefresh }) {
   );
 }
 
-// ── Tabs ───────────────────────────────────────────────────────────────────
-const TABS = [
-  {id:'resumen',      label:'Resumen'},
-  {id:'semanas',      label:'Semanas'},
-  {id:'meses',        label:'Meses'},
-  {id:'eficiencia',   label:'Eficiencia'},
-  {id:'gastos',       label:'Gastos'},
-  {id:'proyecciones', label:'Proyecciones'},
-  {id:'guia',         label:'Guía'},
-];
-
-function NavTabs({ active, setActive }) {
-  return (
-    <nav style={{ borderBottom:`1px solid ${C.border}`, padding:'0 32px', display:'flex', overflowX:'auto' }} aria-label="Secciones">
-      {TABS.map(t=>(
-        <button key={t.id} onClick={()=>setActive(t.id)}
-          aria-current={active===t.id?'page':undefined}
-          style={{ padding:'13px 14px', background:'transparent', border:'none', borderBottom:`2px solid ${active===t.id?C.accent:'transparent'}`, color:active===t.id?C.text:C.muted, fontSize:13, fontWeight:active===t.id?500:400, cursor:'pointer', whiteSpace:'nowrap', transition:'all 0.1s', fontFamily:'inherit' }}>
-          {t.label}
-        </button>
-      ))}
-    </nav>
-  );
-}
 
 // ── Sección Resumen ────────────────────────────────────────────────────────
 function SectionResumen({ resumen, registroDiario }) {
@@ -909,21 +885,9 @@ function SectionGuia() {
 const VALID = ['resumen','semanas','meses','eficiencia','gastos','proyecciones','guia'];
 
 function DashboardApp() {
-  const router      = useRouter();
-  const pathname    = usePathname();
   const searchParams = useSearchParams();
-  const tabFromUrl  = searchParams.get('seccion');
-  const [tab, setTabState] = useState(VALID.includes(tabFromUrl)?tabFromUrl:'resumen');
-
-  const setTab = useCallback((id)=>{
-    setTabState(id);
-    const p=new URLSearchParams(searchParams.toString()); p.set('seccion',id);
-    router.replace(`${pathname}?${p.toString()}`,{scroll:false});
-  },[router,pathname,searchParams]);
-
-  useEffect(()=>{
-    if(VALID.includes(tabFromUrl)&&tabFromUrl!==tab) setTabState(tabFromUrl);
-  },[tabFromUrl]);// eslint-disable-line
+  const tabFromUrl   = searchParams.get('seccion');
+  const tab          = VALID.includes(tabFromUrl) ? tabFromUrl : 'resumen';
 
   const [data, setData]         = useState(null);
   const [loading, setLoading]   = useState(true);
@@ -953,7 +917,6 @@ function DashboardApp() {
       <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column'}}>
         <a href="#main" className="sr-only focus:not-sr-only" style={{position:'absolute',top:8,left:208,background:C.accent,color:'#fff',padding:'6px 12px',borderRadius:4,fontSize:12,zIndex:50}}>Ir al contenido</a>
         <Header config={data?.config} resumen={data?.resumen} lastUpdated={data?.lastUpdated} refreshing={refreshing} onRefresh={()=>fetchData(true)} />
-        <NavTabs active={tab} setActive={setTab} />
         <main id="main" style={{flex:1,padding:'32px',maxWidth:1200,width:'100%'}}>
           {tab==='guia' ? (
             <SectionGuia />

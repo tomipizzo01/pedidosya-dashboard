@@ -1,12 +1,22 @@
 'use client';
+import { Suspense } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-const NAV = [
-  { href: '/',              label: 'Dashboard'       },
-  { href: '/registro',      label: 'Registros'       },
-  { href: '/configuracion', label: 'Configuración'   },
+const SECTIONS = [
+  { id: 'resumen',      label: 'Resumen'      },
+  { id: 'semanas',      label: 'Semanas'      },
+  { id: 'meses',        label: 'Meses'        },
+  { id: 'eficiencia',   label: 'Eficiencia'   },
+  { id: 'gastos',       label: 'Gastos'       },
+  { id: 'proyecciones', label: 'Proyecciones' },
+  { id: 'guia',         label: 'Guía'         },
+];
+
+const PAGES = [
+  { href: '/registro',      label: 'Registros'     },
+  { href: '/configuracion', label: 'Configuración' },
 ];
 
 const s = {
@@ -30,7 +40,7 @@ const s = {
     marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.08em',
   },
   user: {
-    padding: '16px 20px',
+    padding: '14px 20px',
     borderBottom: '1px solid #1c1c1c',
   },
   userLabel: {
@@ -38,13 +48,16 @@ const s = {
     textTransform: 'uppercase', letterSpacing: '0.1em',
     marginBottom: 4,
   },
-  userName: {
-    fontSize: 13, fontWeight: 500, color: '#e5e5e5',
+  userName: { fontSize: 13, fontWeight: 500, color: '#e5e5e5' },
+  userRole: { fontSize: 11, color: '#525252', marginTop: 2 },
+  groupLabel: {
+    padding: '14px 20px 6px',
+    fontSize: 10, textTransform: 'uppercase',
+    letterSpacing: '0.1em', color: '#2a2a2a',
   },
-  userRole: {
-    fontSize: 11, color: '#525252', marginTop: 2,
+  divider: {
+    height: 1, background: '#1c1c1c', margin: '8px 0',
   },
-  nav: { flex: 1, padding: '12px 0' },
   logout: {
     padding: '16px 20px',
     borderTop: '1px solid #1c1c1c',
@@ -58,9 +71,29 @@ const s = {
   },
 };
 
-export default function Sidebar() {
+function NavLink({ href, label, active }) {
+  return (
+    <Link href={href} style={{
+      display: 'block',
+      padding: '9px 20px',
+      fontSize: 13,
+      textDecoration: 'none',
+      color: active ? '#e5e5e5' : '#525252',
+      borderLeft: `2px solid ${active ? '#e03535' : 'transparent'}`,
+      background: active ? '#0f0f0f' : 'transparent',
+      transition: 'all 0.1s',
+    }}>
+      {label}
+    </Link>
+  );
+}
+
+function SidebarInner() {
   const { data: session } = useSession();
-  const path = usePathname();
+  const pathname   = usePathname();
+  const searchParams = useSearchParams();
+  const seccion    = searchParams.get('seccion') || 'resumen';
+  const enDashboard = pathname === '/';
 
   return (
     <aside style={s.aside}>
@@ -77,24 +110,27 @@ export default function Sidebar() {
         </div>
       )}
 
-      <nav style={s.nav} aria-label="Navegación principal">
-        {NAV.map(({ href, label }) => {
-          const active = path === href || (href !== '/' && path.startsWith(href));
-          return (
-            <Link key={href} href={href} style={{
-              display: 'block',
-              padding: '10px 20px',
-              fontSize: 13,
-              textDecoration: 'none',
-              color: active ? '#e5e5e5' : '#525252',
-              borderLeft: `2px solid ${active ? '#e03535' : 'transparent'}`,
-              background: active ? '#0f0f0f' : 'transparent',
-              transition: 'all 0.1s',
-            }}>
-              {label}
-            </Link>
-          );
-        })}
+      <nav style={{ flex: 1, padding: '8px 0', overflowY: 'auto' }} aria-label="Navegación principal">
+        <div style={s.groupLabel}>Dashboard</div>
+        {SECTIONS.map(({ id, label }) => (
+          <NavLink
+            key={id}
+            href={`/?seccion=${id}`}
+            label={label}
+            active={enDashboard && seccion === id}
+          />
+        ))}
+
+        <div style={s.divider} />
+
+        {PAGES.map(({ href, label }) => (
+          <NavLink
+            key={href}
+            href={href}
+            label={label}
+            active={pathname === href || (href !== '/' && pathname.startsWith(href))}
+          />
+        ))}
       </nav>
 
       <div style={s.logout}>
@@ -108,5 +144,20 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+  );
+}
+
+export default function Sidebar() {
+  return (
+    <Suspense fallback={
+      <aside style={s.aside}>
+        <div style={s.logo}>
+          <div style={s.logoText}>GestorPro</div>
+          <div style={s.logoSub}>Cadete · PedidosYa</div>
+        </div>
+      </aside>
+    }>
+      <SidebarInner />
+    </Suspense>
   );
 }
