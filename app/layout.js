@@ -1,14 +1,17 @@
-import "./globals.css";
+import './globals.css';
+import Providers from './providers';
 
 export const metadata = {
-  title: "Gestor Finanzas — Pedidos Ya | Nico Acosta",
-  description: "Dashboard financiero de cadete PedidosYa — Tucumán",
+  title: 'Gestor Finanzas — Cadete',
+  description: 'Sistema de gestión financiera para cadetes de delivery',
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

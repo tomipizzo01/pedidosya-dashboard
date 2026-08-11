@@ -1,225 +1,198 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../../lib/auth-options';
+import { supabaseAdmin } from '../../../lib/supabase';
 
-const SHEET_ID = process.env.GOOGLE_SHEET_ID || '14gvqUw_rX9smW8wpoubfX3fDy5PNO31s79IccaxZWxc';
-const API_KEY = process.env.GOOGLE_API_KEY;
-const BASE = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`;
+const fmt = (n) => (n == null ? null : Number(n));
 
-// ── Fetch ──────────────────────────────────────────────────────────────────
-
-async function fetchRange(sheetName, range = 'A1:AJ500') {
-  const encoded = encodeURIComponent(`${sheetName}!${range}`);
-  const res = await fetch(`${BASE}/values/${encoded}?key=${API_KEY}`, { cache: 'no-store' });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.values || null;
+function getMonday(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().split('T')[0];
 }
-
-async function trySheetNames(candidates) {
-  for (const name of candidates) {
-    const rows = await fetchRange(name);
-    if (rows && rows.length > 2) return rows;
-  }
-  return null;
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-const isDate = (v) => /^\d{2}\/\d{2}\/\d{4}$/.test(String(v ?? ''));
-const isNumStr = (v) => v != null && v !== '' && v !== '-' && v !== '—' && !isNaN(Number(String(v).replace(/[$,.% ]/g, '')));
-
-const num = (v) => {
-  if (v == null || v === '' || v === '-' || v === '—') return null;
-  const n = Number(String(v).replace(/[$,. ]/g, '').replace('%', ''));
-  return isNaN(n) ? null : n;
-};
-
-function findHeaderRow(rows, keywords) {
-  return rows.findIndex(row =>
-    keywords.every(kw =>
-      row.some(cell => String(cell ?? '').toUpperCase().includes(kw.toUpperCase()))
-    )
-  );
-}
-
-function rowToObj(headers, row) {
-  const obj = {};
-  headers.forEach((h, i) => { obj[h] = row[i] ?? null; });
-  return obj;
-}
-
-// ── Parsers ────────────────────────────────────────────────────────────────
-
-function parseRegistroDiario(rows) {
-  if (!rows) return [];
-  const hi = findHeaderRow(rows, ['FECHA', 'GANANCIA']);
-  if (hi === -1) return [];
-  const h = rows[hi];
-  const idx = (kw) => h.findIndex(c => String(c ?? '').toUpperCase().includes(kw.toUpperCase()));
-  const iF = 0, iD = 1, iSI = idx('SALDO'), iTG = idx('GENERADO'),
-    iEF = idx('EFECTIVO'), iPA = idx('APLICACI'), iTDia = idx('TOTAL DÍA') !== -1 ? idx('TOTAL DÍA') : idx('TOTAL DIA'),
-    iNafta = idx('NAFTA'), iComida = idx('COMIDA'), iOtros = idx('OTROS GASTO'),
-    iTG2 = idx('TOTAL GASTOS') !== -1 ? idx('TOTAL GASTOS') : idx('GASTOS'),
-    iGR = idx('GANANCIA REAL') !== -1 ? idx('GANANCIA REAL') : idx('GANANCIA'),
-    iH = idx('HORAS'), iP = idx('PEDIDOS'), iKM = idx('KM'),
-    iXH = idx('$/HORA'), iXP = idx('$/PEDIDO'), iNotas = idx('NOTAS'),
-    iClima = idx('CLIMA'), iEnergia = idx('ENERG'), iNotaDia = idx('NOTA DIA') !== -1 ? idx('NOTA DIA') : idx('NOTA DÍA');
-
-  return rows.slice(hi + 1)
-    .filter(r => isDate(r[iF]))
-    .map(r => ({
-      fecha: r[iF],
-      dia: r[iD],
-      saldoInicial: num(r[iSI]),
-      totalGenerado: num(r[iTG]),
-      efectivo: num(r[iEF]),
-      porApp: num(r[iPA]),
-      totalDia: num(r[iTDia]),
-      nafta: num(r[iNafta]),
-      comida: num(r[iComida]),
-      otros: num(r[iOtros]),
-      totalGastos: num(r[iTG2]),
-      gananciaReal: num(r[iGR]),
-      horas: num(r[iH]),
-      pedidos: num(r[iP]),
-      km: num(r[iKM]),
-      xHora: num(r[iXH]),
-      xPedido: num(r[iXP]),
-      notas: r[iNotas] ?? null,
-      clima: r[iClima] ?? null,
-      energia: num(r[iEnergia]),
-      notaDia: r[iNotaDia] ?? null,
-    }));
-}
-
-function parseTurnos(rows) {
-  if (!rows) return [];
-  const hi = findHeaderRow(rows, ['HORA INICIO', 'ZONA']);
-  if (hi === -1) return [];
-  return rows.slice(hi + 1)
-    .filter(r => isDate(r[0]))
-    .map(r => ({
-      fecha: r[0],
-      n: num(r[1]),
-      inicio: r[2] ?? null,
-      fin: r[3] ?? null,
-      duracion: num(r[4]),
-      zona: r[5] ?? null,
-      especial: String(r[6] ?? '').toUpperCase().includes('SI') || String(r[6] ?? '').includes('⭐'),
-      hrsEspecial: num(r[7]),
-      presento: String(r[8] ?? '').toUpperCase().includes('SI'),
-      pedidos: num(r[9]),
-      aceptacion: num(r[10]),
-      nota: r[11] ?? null,
-    }));
-}
-
-function parseRanking(rows) {
-  if (!rows) return [];
-  const hi = findHeaderRow(rows, ['DESDE', 'GRUPO']);
-  if (hi === -1) return [];
-  return rows.slice(hi + 1)
-    .filter(r => isNumStr(r[0]) && r[1])
-    .map(r => ({
-      n: num(r[0]),
-      desde: r[1] ?? null,
-      hasta: r[2] ?? null,
-      pedidos: num(r[3]),
-      metaPedidos: num(r[4]),
-      okPedidos: r[5] ?? null,
-      hrsEspecial: num(r[6]),
-      metaHrs: num(r[7]),
-      okHrs: r[8] ?? null,
-      aceptacion: num(r[9]),
-      metaAcep: num(r[10]),
-      okAcep: r[11] ?? null,
-      noPresent: num(r[12]),
-      metaNoPresent: num(r[13]),
-      okNoPresent: r[14] ?? null,
-      hrsRealVsPlan: r[15] ?? null,
-      okHrsRealVsPlan: r[16] ?? null,
-      grupoEstimado: r[17] ?? null,
-      grupoReal: r[18] ?? null,
-      dia: r[19] ?? null,
-      hora: r[20] ?? null,
-    }));
-}
-
-function parseMantenimiento(rows) {
-  if (!rows) return [];
-  const hi = findHeaderRow(rows, ['DESCRIPCI', 'COSTO']);
-  if (hi === -1) return [];
-  return rows.slice(hi + 1)
-    .filter(r => isDate(r[0]))
-    .map(r => ({
-      fecha: r[0],
-      tipo: r[1] ?? null,
-      descripcion: r[2] ?? null,
-      km: num(r[3]),
-      costo: num(r[4]),
-      proximoKm: num(r[5]),
-      notas: r[6] ?? null,
-    }));
-}
-
-// ── Handler ────────────────────────────────────────────────────────────────
 
 export async function GET() {
-  if (!API_KEY) {
-    return NextResponse.json(
-      { error: 'Falta configurar GOOGLE_API_KEY en las variables de entorno de Vercel.' },
-      { status: 500 }
-    );
-  }
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
-  try {
-    const [rdRows, tRows, rkRows, mtRows] = await Promise.all([
-      trySheetNames(['📅 Registro Diario', 'Registro Diario', '📝 Registro Diario']),
-      trySheetNames(['📅 Turnos', 'Turnos', 'Registro de Turnos', '🗓️ Turnos']),
-      trySheetNames(['🏆 Ranking Semanal', 'Ranking Semanal', 'Ranking']),
-      trySheetNames(['🏍️ Mantenimiento', 'Mantenimiento', '🔧 Mantenimiento']),
-    ]);
+  const { data: rows, error: rowsErr } = await supabaseAdmin
+    .from('registros_con_calculos')
+    .select('*')
+    .order('fecha', { ascending: false })
+    .limit(500);
 
-    const registroDiario = parseRegistroDiario(rdRows);
-    const turnos         = parseTurnos(tRows);
-    const ranking        = parseRanking(rkRows);
-    const mantenimiento  = parseMantenimiento(mtRows);
+  if (rowsErr) return NextResponse.json({ error: rowsErr.message }, { status: 500 });
 
-    // Resumen calculado desde los datos reales
-    const turnosPresentes = turnos.filter(t => t.presento);
-    const totalPedidosTurnos = turnosPresentes.reduce((a, t) => a + (t.pedidos || 0), 0);
-    const totalHrsTurnos = turnosPresentes.reduce((a, t) => a + (t.duracion || 0), 0);
-    const hrsEspeciales = turnos.filter(t => t.especial && t.presento).reduce((a, t) => a + (t.hrsEspecial || 0), 0);
-    const aceps = turnos.filter(t => t.aceptacion != null).map(t => t.aceptacion);
-    const acepProm = aceps.length ? aceps.reduce((a, b) => a + b, 0) / aceps.length : null;
-    const diasTrabajados = registroDiario.filter(r => r.gananciaReal != null || r.totalGenerado != null).length;
-    const gananciaTotal = registroDiario.reduce((a, r) => a + (r.gananciaReal || 0), 0);
-    const gastoTotal = registroDiario.reduce((a, r) => a + (r.totalGastos || 0), 0);
-    const pedidosTotal = registroDiario.reduce((a, r) => a + (r.pedidos || 0), 0);
-    const kmTotal = registroDiario.reduce((a, r) => a + (r.km || 0), 0);
-    const horasTotal = registroDiario.reduce((a, r) => a + (r.horas || 0), 0);
+  const { data: cfg } = await supabaseAdmin
+    .from('configuracion')
+    .select('*')
+    .order('id')
+    .limit(1)
+    .single();
 
-    return NextResponse.json({
-      lastUpdated: new Date().toISOString(),
-      resumen: {
-        diasTrabajados,
-        gananciaTotal,
-        gastoTotal,
-        pedidosTotal,
-        kmTotal: Math.round(kmTotal * 10) / 10,
-        horasTotal: Math.round(horasTotal * 10) / 10,
-        totalPedidosTurnos,
-        totalHrsTurnos: Math.round(totalHrsTurnos * 10) / 10,
-        hrsEspeciales: Math.round(hrsEspeciales * 10) / 10,
-        acepProm: acepProm != null ? Math.round(acepProm * 10) / 10 : null,
-        presentaciones: turnosPresentes.length,
-        totalTurnos: turnos.length,
-      },
-      registroDiario,
-      turnos,
-      ranking,
-      mantenimiento,
-    });
-  } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
+  const registroDiario = (rows || []).map((r) => ({
+    id:            r.id,
+    fecha:         r.fecha,
+    dia:           r.dia_semana,
+    saldoInicial:  fmt(r.saldo_inicial),
+    totalGenerado: fmt(r.total_generado),
+    efectivo:      fmt(r.efectivo),
+    porApp:        fmt(r.por_app),
+    totalDia:      fmt(r.total_dia),
+    nafta:         fmt(r.nafta),
+    comida:        fmt(r.comida),
+    otros:         fmt(r.otros_gastos),
+    totalGastos:   fmt(r.total_gastos),
+    gananciaReal:  fmt(r.ganancia_real),
+    horas:         fmt(r.horas),
+    pedidos:       fmt(r.pedidos),
+    km:            fmt(r.km),
+    xHora:         fmt(r.ganancia_por_hora),
+    xPedido:       fmt(r.ganancia_por_pedido),
+    clima:         r.clima,
+    energia:       fmt(r.energia),
+    temperatura:   fmt(r.temperatura),
+    notas:         r.notas,
+  }));
+
+  // ── Agregados globales ─────────────────────────────────────
+  const diasTrabajados = registroDiario.filter(r => r.gananciaReal != null).length;
+  const gananciaTotal  = registroDiario.reduce((a, r) => a + (r.gananciaReal || 0), 0);
+  const pedidosTotal   = registroDiario.reduce((a, r) => a + (r.pedidos || 0), 0);
+  const horasTotal     = registroDiario.reduce((a, r) => a + (r.horas || 0), 0);
+  const gastosTotal    = registroDiario.reduce((a, r) => a + (r.totalGastos || 0), 0);
+
+  const metaMensual = fmt(cfg?.meta_mensual) || 600000;
+  const metaDiaria  = fmt(cfg?.meta_diaria)  || 20000;
+
+  // ── Gastos por categoría ───────────────────────────────────
+  const gastosPorCategoria = {
+    nafta:  Math.round(registroDiario.reduce((a, r) => a + (r.nafta  || 0), 0)),
+    comida: Math.round(registroDiario.reduce((a, r) => a + (r.comida || 0), 0)),
+    otros:  Math.round(registroDiario.reduce((a, r) => a + (r.otros  || 0), 0)),
+  };
+
+  // ── Resumen semanal ────────────────────────────────────────
+  const porSemana = {};
+  registroDiario.forEach(r => {
+    if (!r.fecha) return;
+    const monday = getMonday(r.fecha);
+    if (!porSemana[monday]) porSemana[monday] = [];
+    porSemana[monday].push(r);
+  });
+
+  const resumenSemanal = Object.entries(porSemana)
+    .map(([monday, rws]) => {
+      const ganancia = rws.reduce((a, r) => a + (r.gananciaReal || 0), 0);
+      const gastos   = rws.reduce((a, r) => a + (r.totalGastos  || 0), 0);
+      const nafta    = rws.reduce((a, r) => a + (r.nafta  || 0), 0);
+      const comida   = rws.reduce((a, r) => a + (r.comida || 0), 0);
+      const otros    = rws.reduce((a, r) => a + (r.otros  || 0), 0);
+      const pedidos  = rws.reduce((a, r) => a + (r.pedidos || 0), 0);
+      const horas    = rws.reduce((a, r) => a + (r.horas   || 0), 0);
+      const km       = rws.reduce((a, r) => a + (r.km      || 0), 0);
+      const dias     = rws.filter(r => r.gananciaReal != null).length;
+      const sun      = new Date(monday + 'T00:00:00');
+      sun.setDate(sun.getDate() + 6);
+      const sunday   = sun.toISOString().split('T')[0];
+      return {
+        monday,
+        sunday,
+        ganancia: Math.round(ganancia),
+        gastos:   Math.round(gastos),
+        nafta:    Math.round(nafta),
+        comida:   Math.round(comida),
+        otros:    Math.round(otros),
+        pedidos,
+        horas:    Math.round(horas * 10) / 10,
+        km:       Math.round(km   * 10) / 10,
+        dias,
+        promDia:  dias   ? Math.round(ganancia / dias)  : 0,
+        xHora:    horas  ? Math.round(ganancia / horas) : 0,
+      };
+    })
+    .sort((a, b) => b.monday.localeCompare(a.monday));
+
+  // ── Resumen mensual ────────────────────────────────────────
+  const porMes = {};
+  registroDiario.forEach(r => {
+    if (!r.fecha) return;
+    const mes = r.fecha.slice(0, 7);
+    if (!porMes[mes]) porMes[mes] = [];
+    porMes[mes].push(r);
+  });
+
+  const MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const resumenMensual = Object.entries(porMes)
+    .map(([mes, rws]) => {
+      const ganancia = rws.reduce((a, r) => a + (r.gananciaReal || 0), 0);
+      const gastos   = rws.reduce((a, r) => a + (r.totalGastos  || 0), 0);
+      const nafta    = rws.reduce((a, r) => a + (r.nafta  || 0), 0);
+      const comida   = rws.reduce((a, r) => a + (r.comida || 0), 0);
+      const otros    = rws.reduce((a, r) => a + (r.otros  || 0), 0);
+      const pedidos  = rws.reduce((a, r) => a + (r.pedidos || 0), 0);
+      const horas    = rws.reduce((a, r) => a + (r.horas   || 0), 0);
+      const km       = rws.reduce((a, r) => a + (r.km      || 0), 0);
+      const dias     = rws.filter(r => r.gananciaReal != null).length;
+      const [y, m]   = mes.split('-');
+      return {
+        mes,
+        label: `${MESES_ES[parseInt(m) - 1]} ${y}`,
+        ganancia: Math.round(ganancia),
+        gastos:   Math.round(gastos),
+        nafta:    Math.round(nafta),
+        comida:   Math.round(comida),
+        otros:    Math.round(otros),
+        pedidos,
+        horas:    Math.round(horas * 10) / 10,
+        km:       Math.round(km   * 10) / 10,
+        dias,
+        promDia:  dias  ? Math.round(ganancia / dias)  : 0,
+        xHora:    horas ? Math.round(ganancia / horas) : 0,
+      };
+    })
+    .sort((a, b) => b.mes.localeCompare(a.mes));
+
+  // ── Eficiencia por día/clima ───────────────────────────────
+  const porDia = {};
+  registroDiario.forEach(r => {
+    if (!r.dia) return;
+    if (!porDia[r.dia]) porDia[r.dia] = { sum: 0, cnt: 0, pedidos: 0 };
+    porDia[r.dia].sum     += r.gananciaReal || 0;
+    porDia[r.dia].cnt     += 1;
+    porDia[r.dia].pedidos += r.pedidos || 0;
+  });
+  const eficienciaDia = Object.entries(porDia).map(([dia, v]) => ({
+    dia,
+    promGanancia: Math.round(v.sum / v.cnt),
+    promPedidos:  Math.round((v.pedidos / v.cnt) * 10) / 10,
+    dias:         v.cnt,
+  }));
+
+  return NextResponse.json({
+    registroDiario,
+    resumenSemanal,
+    resumenMensual,
+    gastosPorCategoria,
+    eficienciaDia,
+    resumen: {
+      diasTrabajados,
+      gananciaTotal:   Math.round(gananciaTotal),
+      pedidosTotal,
+      horasTotal:      Math.round(horasTotal * 10) / 10,
+      gastosTotal:     Math.round(gastosTotal),
+      gananciaPromDia: diasTrabajados ? Math.round(gananciaTotal / diasTrabajados) : 0,
+      xHoraPromedio:   horasTotal     ? Math.round(gananciaTotal / horasTotal)     : 0,
+      xPedidoPromedio: pedidosTotal   ? Math.round(gananciaTotal / pedidosTotal)   : 0,
+      metaMensual,
+      metaDiaria,
+    },
+    config:          cfg || {},
+    lastUpdated:     new Date().toISOString(),
+    // compat
+    turnos:          [],
+    ranking:         [],
+  });
 }
