@@ -72,7 +72,7 @@ export default function Sidebar() {
       {session && (
         <div style={s.user}>
           <div style={s.userLabel}>Sesión</div>
-          <div style={s.userName}>{session.user.nombre || session.user.username}</div>
+          <div style={s.userName}>{session.user.nombre || session.user.email}</div>
           <div style={s.userRole}>{session.user.rol || 'cadete'}</div>
         </div>
       )}

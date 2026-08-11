@@ -8,7 +8,7 @@ const C = {
 };
 
 export default function LoginPage() {
-  const [form, setForm]       = useState({ username: '', password: '' });
+  const [form, setForm]       = useState({ email: '', password: '' });
   const [error, setError]     = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,13 +17,13 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     const res = await signIn('credentials', {
-      username: form.username.trim(),
+      email:    form.email.trim(),
       password: form.password,
       redirect: false,
     });
     setLoading(false);
     if (!res?.ok || res?.error) {
-      setError('Usuario o contraseña incorrectos.');
+      setError('Email o contraseña incorrectos.');
     } else {
       window.location.href = '/';
     }
@@ -58,16 +58,16 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label htmlFor="username" style={{
+            <label htmlFor="email" style={{
               display: 'block', fontSize: 11, textTransform: 'uppercase',
               letterSpacing: '0.08em', color: C.muted, marginBottom: 8,
             }}>
-              Usuario
+              Email
             </label>
             <input
-              id="username" type="text" required autoComplete="username" autoFocus
-              value={form.username}
-              onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
+              id="email" type="email" required autoComplete="email" autoFocus
+              value={form.email}
+              onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
               style={{
                 width: '100%', background: 'transparent',
                 border: `1px solid ${C.border}`, borderRadius: 4,
